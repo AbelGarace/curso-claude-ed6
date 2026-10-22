@@ -12,6 +12,7 @@ erDiagram
     restaurants ||--o{ ingredients : "tiene"
     restaurants ||--o{ dishes : "tiene"
     restaurants ||--o{ orders : "tiene"
+    restaurants ||--o{ restaurant_tables : "tiene"
     dishes ||--o{ dish_ingredients : "contiene"
     ingredients ||--o{ dish_ingredients : "usado en"
     orders ||--o{ order_items : "contiene"
@@ -66,6 +67,17 @@ erDiagram
         TEXT dish_id PK_FK
         TEXT ingredient_id PK_FK
         REAL quantity
+    }
+
+    restaurant_tables {
+        TEXT id PK
+        INTEGER number
+        TEXT description
+        INTEGER capacity
+        TEXT status
+        TEXT restaurant_id FK
+        TEXT created_at
+        TEXT updated_at
     }
 
     orders {
@@ -182,6 +194,29 @@ Relación muchos-a-muchos entre platos e ingredientes.
 
 ---
 
+### `restaurant_tables`
+
+Mesas de cada restaurante. Se llama `restaurant_tables` para no confundir la entidad con el concepto SQL de «tabla».
+
+| Columna | Tipo | Nullable | Descripción |
+| --- | --- | --- | --- |
+| `id` | TEXT | No | UUID, clave primaria |
+| `number` | INTEGER | No | Número visible de la mesa (entero > 0) |
+| `description` | TEXT | Sí | Texto libre (p. ej. «Terraza») |
+| `capacity` | INTEGER | No | Número máximo de comensales (entero > 0) |
+| `status` | TEXT | No | Estado: libre, ocupada, reservada (default: `libre`) |
+| `restaurant_id` | TEXT | No | FK → `restaurants.id` |
+| `created_at` | TEXT | No | Fecha de creación |
+| `updated_at` | TEXT | No | Fecha de última actualización (también al cambiar el estado) |
+
+**Restricciones:**
+
+- UNIQUE (`restaurant_id`, `number`): el número no se repite dentro de un restaurante.
+- `restaurant_id` es FK a `restaurants.id`.
+- Las validaciones de `number`, `capacity` y `status` se hacen en `TableService`; la tabla no tiene `CHECK`.
+
+---
+
 ### `orders`
 
 Pedidos de los clientes.
@@ -190,7 +225,7 @@ Pedidos de los clientes.
 | --- | --- | --- | --- |
 | `id` | TEXT | No | UUID, clave primaria |
 | `restaurant_id` | TEXT | No | FK → `restaurants.id` |
-| `table_id` | TEXT | Sí | Identificador de mesa (opcional) |
+| `table_id` | TEXT | Sí | `restaurant_tables.id` de la mesa del pedido (opcional). **No es FK**: la API no valida que la mesa exista |
 | `client_id` | TEXT | Sí | ID del cliente (opcional) |
 | `created_at` | TEXT | No | Fecha de creación |
 
@@ -223,6 +258,8 @@ Líneas de pedido. Cada ítem es un plato con cantidad y estado.
 | Restaurant → Ingredients | 1:N | Un restaurante tiene muchos ingredientes |
 | Restaurant → Dishes | 1:N | Un restaurante tiene muchos platos |
 | Restaurant → Orders | 1:N | Un restaurante tiene muchos pedidos |
+| Restaurant → Tables | 1:N | Un restaurante tiene muchas mesas (`restaurant_tables`) |
+| Table → Orders | 1:N (lógica) | Un pedido puede apuntar a una mesa por `orders.table_id`, sin FK |
 | Dish ↔ Ingredient | N:M | Un plato usa varios ingredientes (via `dish_ingredients`) |
 | Order → OrderItems | 1:N | Un pedido tiene varios ítems |
 | Dish → OrderItems | 1:N | Un plato puede estar en varios ítems de pedido |
@@ -231,9 +268,9 @@ Líneas de pedido. Cada ítem es un plato con cantidad y estado.
 
 ## Notas Técnicas
 
-- **IDs**: Todos son UUID v4 generados con `crypto.randomUUID()`. Excepción: el script de seed usa los identificadores fijos `rest-1` y `rest-2` para los restaurantes de prueba.
+- **IDs**: Todos son UUID v4 generados con `crypto.randomUUID()`. Excepción: el script de seed usa identificadores fijos: `rest-1` y `rest-2` para los restaurantes y `<restaurante>-mesa-<número>` (p. ej. `rest-1-mesa-5`) para las mesas.
 - **Fechas**: Almacenadas como TEXT en formato ISO 8601 (`new Date().toISOString()`).
 - **Booleanos**: SQLite no tiene tipo BOOLEAN; se usa INTEGER (0 = false, 1 = true).
 - **Nomenclatura**: las columnas son `snake_case` y las propiedades TypeScript `camelCase`. La conversión se hace con alias en el propio SQL (`owner_first_name as ownerFirstName`).
 - **Migraciones**: Las tablas se crean automáticamente en `Database.initialize()` con `CREATE TABLE IF NOT EXISTS`.
-- **Sin migrations framework**: No se usa un sistema de migraciones formal. Los cambios de esquema se hacen modificando `runInitialMigrations()`. Como solo se ejecuta `CREATE TABLE IF NOT EXISTS`, **añadir una columna no afecta a una base de datos ya creada**: hay que borrar `packages/api/resttek.db` y volver a sembrar.
+- **Sin migrations framework**: No se usa un sistema de migraciones formal. Los cambios de esquema se hacen modificando `runInitialMigrations()`. Como solo se ejecuta `CREATE TABLE IF NOT EXISTS`, **añadir una columna no afecta a una base de datos ya creada**: hay que borrar `packages/api/resttek.db` y volver a sembrar. Una tabla nueva, como `restaurant_tables`, sí se crea en bases de datos existentes al arrancar la API.
