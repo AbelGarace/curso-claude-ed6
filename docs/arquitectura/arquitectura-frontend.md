@@ -52,15 +52,16 @@ src/app/
 ├── app.routes.ts
 ├── core/
 │   ├── layout/            → shell.component.ts
-│   ├── models/            → dish, order, restaurant
-│   ├── services/          → dish, order, restaurant
+│   ├── models/            → dish, order, restaurant, table
+│   ├── services/          → dish, order, restaurant, table
 │   └── store/             → cart.store.ts
 └── features/
     ├── cart/cart.component.ts
     ├── menu/restaurant-menu.component.ts
     ├── orders/my-orders.component.ts
     ├── orders/order-detail.component.ts
-    └── restaurants/restaurant-list.component.ts
+    ├── restaurants/restaurant-list.component.ts
+    └── tables/table-selection.component.ts
 ```
 
 Ninguna de las tres aplicaciones tiene carpeta `shared/` propia: lo compartido vive en `@resttek/web-shared`.
@@ -107,16 +108,20 @@ export class DishStore {
 Caso particular en `web-empleados`:
 
 - `OrderStore` añade **polling cada 30 s** con `startPolling()` / `stopPolling()`, ya que la API no tiene websockets.
+- `TableStore` (feature `tables`) sigue el mismo esquema: `loadTables(restaurantId)`, `changeStatus()` y polling de 30 s. Además expone un mapa `id → número` que usa `salon` para mostrar «Mesa N» (o «Mesa desconocida» si el `tableId` del pedido no corresponde a ninguna mesa).
 
 ### `web-clientes`: el patrón Store casi no se usa
 
 En `web-clientes` el patrón Store **no es la norma**: el único store real es `CartStore`, y es puramente local (sin HTTP) — vacía el carrito si añades un plato de otro restaurante, pero no envuelve ninguna llamada a la API.
 
+`CartStore` guarda también la **mesa ocupada** (`table`, con su `restaurantId`), que se fija con `setTable(restaurantId, tableId)` y se consulta con `tableIdFor(restaurantId)` (devuelve `null` si la mesa es de otro restaurante). `clear()` vacía los platos pero **conserva la mesa**, para que el cliente pueda seguir pidiendo en ella; la mesa solo se sustituye al ocupar otra. Como el store vive en memoria, recargar la página pierde la mesa y el cliente vuelve a la selección (la mesa anterior sigue `ocupada` hasta que la libere un empleado).
+
 Para todo lo demás (restaurantes, carta/platos, confirmación y consulta de pedidos) los componentes de `features/` inyectan el `*Service` correspondiente directamente y llaman a sus métodos con `.subscribe({ next, error })`, sin pasar por ningún store ni por `firstValueFrom`:
 
 - `restaurant-list.component.ts` → `RestaurantService.getAll()`
+- `table-selection.component.ts` → `TableService.getAvailable(restaurantId, people)` (endpoint público) y `TableService.occupy()`
 - `restaurant-menu.component.ts` → `RestaurantService.getById()` y `DishService.getByRestaurant()`
-- `cart.component.ts` (`confirmOrder()`) → `OrderService.createOrder()`
+- `cart.component.ts` (`confirmOrder()`) → `OrderService.createOrder(restaurantId, tableId, items)`
 - `my-orders.component.ts` → `OrderService.getMyOrders()`, con **polling cada 10 s** mediante `setInterval`/`clearInterval` en el propio componente
 - `order-detail.component.ts` → `OrderService.getOrderById()`, con **polling cada 5 s**, también con `setInterval`/`clearInterval` en el propio componente
 
@@ -335,6 +340,14 @@ export class ShellComponent {
 ```
 
 El rol de gerente es `'manager'`, no `'gerente'`. La autorización real es responsabilidad de la API.
+
+### Mesas
+
+La gestión de mesas (contrato en `docs/api/mesas.openapi.yaml`) aparece en las tres aplicaciones:
+
+- **`web-admin`**: feature `tables` (CRUD) en `restaurants/:restaurantId/tables`, `.../new` y `.../:id/edit`, con enlace «Mesas» en el menú. Al editar, el formulario solo envía `status` si el admin lo ha cambiado, para no pisar un cambio hecho por un camarero (el `PUT` conserva el estado si no se envía). Los errores se muestran con el `message` de la API.
+- **`web-empleados`**: página `/mesas`, visible para todos los roles, con una tarjeta por mesa coloreada según su estado. El selector de estado solo se muestra a `manager` y `camarero` (el cocinero ve las mesas en modo lectura); es así como se libera una mesa. En las mesas `ocupada` se listan sus pedidos activos con los platos aún no entregados, filtrando `OrderStore.orders()` por `tableId`.
+- **`web-clientes`**: flujo restaurante → `restaurants/:id/table` (comensales y mesas libres con capacidad suficiente) → *Continuar* ocupa la mesa → carta → pedido con `tableId`. Si la mesa ya no está libre (409), se refresca la lista con un aviso. `restaurant-menu` redirige a la selección si no hay mesa de ese restaurante en `CartStore`.
 
 ---
 
