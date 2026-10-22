@@ -13,11 +13,11 @@ describe('Role Value Object', () => {
     })
 
     it('should throw InvalidRoleError for invalid role', () => {
-        expect(() => new Role('invalid')).toThrow('Invalid role')
+        expect(() => new Role('invalid')).toThrow('Rol inválido: invalid. Debe ser uno de:')
     })
 
     it('should throw InvalidRoleError for empty role', () => {
-        expect(() => new Role('')).toThrow('Role must be provided')
+        expect(() => new Role('')).toThrow('Debe indicarse un rol')
     })
 
     it('should accept all valid roles', () => {
