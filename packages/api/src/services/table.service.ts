@@ -7,7 +7,8 @@ import {
     InvalidCapacityError,
     InvalidTableNumberError,
     RestaurantIdRequiredError,
-    TableNotFoundError
+    TableNotFoundError,
+    TableOccupiedError
 } from '@errors/DomainErrors.js'
 
 // Los campos llegan tal cual del body JSON: se validan aquí
@@ -65,6 +66,23 @@ export class TableService {
         return updated
     }
 
+    async delete(restaurantId: string, id: string): Promise<void> {
+        const existing = await this.getOwnedTable(restaurantId, id)
+        if (existing.status === 'ocupada') {
+            throw new TableOccupiedError()
+        }
+        await this.tableRepository.delete(id)
+    }
+
+    async findById(restaurantId: string, id: string): Promise<Table> {
+        return this.getOwnedTable(restaurantId, id)
+    }
+
+    async findByRestaurantId(restaurantId: string): Promise<Table[]> {
+        return this.tableRepository.findByRestaurantId(restaurantId)
+    }
+
+    // Una mesa de otro restaurante se trata como inexistente
     private async getOwnedTable(restaurantId: string, id: string): Promise<Table> {
         const table = await this.tableRepository.findById(id)
         if (!table || table.restaurantId !== restaurantId) {

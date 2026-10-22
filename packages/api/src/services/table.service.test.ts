@@ -7,7 +7,8 @@ import {
     InvalidTableNumberError,
     InvalidTableStatusError,
     RestaurantIdRequiredError,
-    TableNotFoundError
+    TableNotFoundError,
+    TableOccupiedError
 } from '@errors/DomainErrors.js'
 
 describe('TableService', () => {
@@ -118,6 +119,54 @@ describe('TableService', () => {
 
             await expect(service.update('r1', 'no-existe', { number: 1, capacity: 4 })).rejects.toThrow(TableNotFoundError)
             await expect(service.update('r2', created.id, { number: 1, capacity: 4 })).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('delete', () => {
+        it.each(['libre', 'reservada'])('should delete a %s table', async (status) => {
+            const created = await service.create({ number: 1, capacity: 4, status, restaurantId: 'r1' })
+
+            await service.delete('r1', created.id)
+            expect(await repo.findById(created.id)).toBeNull()
+        })
+
+        it('should not delete an occupied table', async () => {
+            const created = await service.create({ number: 1, capacity: 4, status: 'ocupada', restaurantId: 'r1' })
+
+            await expect(service.delete('r1', created.id)).rejects.toThrow(TableOccupiedError)
+            expect(await repo.findById(created.id)).not.toBeNull()
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or one of another restaurant', async () => {
+            const created = await service.create({ number: 1, capacity: 4, restaurantId: 'r1' })
+
+            await expect(service.delete('r1', 'no-existe')).rejects.toThrow(TableNotFoundError)
+            await expect(service.delete('r2', created.id)).rejects.toThrow(TableNotFoundError)
+            expect(await repo.findById(created.id)).not.toBeNull()
+        })
+    })
+
+    describe('findById / findByRestaurantId', () => {
+        it('should return a table of the restaurant', async () => {
+            const created = await service.create({ number: 1, capacity: 4, restaurantId: 'r1' })
+
+            expect(await service.findById('r1', created.id)).toEqual(created)
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or one of another restaurant', async () => {
+            const created = await service.create({ number: 1, capacity: 4, restaurantId: 'r1' })
+
+            await expect(service.findById('r1', 'no-existe')).rejects.toThrow(TableNotFoundError)
+            await expect(service.findById('r2', created.id)).rejects.toThrow(TableNotFoundError)
+        })
+
+        it('should list the tables of a restaurant ordered by number', async () => {
+            await service.create({ number: 2, capacity: 4, restaurantId: 'r1' })
+            await service.create({ number: 1, capacity: 4, restaurantId: 'r1' })
+            await service.create({ number: 1, capacity: 4, restaurantId: 'r2' })
+
+            const tables = await service.findByRestaurantId('r1')
+            expect(tables.map(t => t.number)).toEqual([1, 2])
         })
     })
 })
