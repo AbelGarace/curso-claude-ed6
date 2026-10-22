@@ -13,11 +13,11 @@ describe('normalizeIngredientUnit', () => {
     })
 
     it('should throw InvalidUnitError for invalid unit', () => {
-        expect(() => normalizeIngredientUnit('invalid')).toThrow('Invalid unit')
+        expect(() => normalizeIngredientUnit('invalid')).toThrow('Unidad inválida')
     })
 
     it('should throw InvalidUnitError for empty unit', () => {
-        expect(() => normalizeIngredientUnit('')).toThrow('Unit must be provided')
+        expect(() => normalizeIngredientUnit('')).toThrow('Debe indicarse una unidad')
     })
 
     it('should accept all valid units', () => {
@@ -66,7 +66,7 @@ describe('IngredientService', () => {
 
         it('should throw InvalidUnitError for invalid unit', async () => {
             await expect(service.create({ ...validInput, unit: 'invalid' }))
-                .rejects.toThrow('Invalid unit')
+                .rejects.toThrow('Unidad inválida')
         })
 
         it('should throw RestaurantIdRequiredError for empty restaurantId', async () => {
