@@ -5,8 +5,10 @@ import type { TableRepository } from '@repositories/table.repository.js'
 import {
     DuplicatedTableNumberError,
     InvalidCapacityError,
+    InvalidPeopleError,
     InvalidTableNumberError,
     RestaurantIdRequiredError,
+    TableNotAvailableError,
     TableNotFoundError,
     TableOccupiedError
 } from '@errors/DomainErrors.js'
@@ -80,6 +82,41 @@ export class TableService {
 
     async findByRestaurantId(restaurantId: string): Promise<Table[]> {
         return this.tableRepository.findByRestaurantId(restaurantId)
+    }
+
+    // people llega como cadena desde la query string
+    async listAvailable(restaurantId: string, people: unknown): Promise<Table[]> {
+        const minCapacity = typeof people === 'string' && /^[0-9]+$/.test(people) ? Number(people) : people
+        if (!isPositiveInteger(minCapacity)) {
+            throw new InvalidPeopleError()
+        }
+        return this.tableRepository.findAvailable(restaurantId, minCapacity)
+    }
+
+    async changeStatus(restaurantId: string, id: string, status: unknown): Promise<Table> {
+        const existing = await this.getOwnedTable(restaurantId, id)
+        const normalizedStatus = normalizeTableStatus(status as string)
+        const updatedAt = new Date().toISOString()
+
+        await this.tableRepository.updateStatus(id, normalizedStatus, updatedAt)
+        return { ...existing, status: normalizedStatus, updatedAt }
+    }
+
+    async occupy(restaurantId: string, id: string, people: unknown): Promise<Table> {
+        if (!isPositiveInteger(people)) {
+            throw new InvalidPeopleError()
+        }
+        const existing = await this.getOwnedTable(restaurantId, id)
+        if (existing.capacity < people) {
+            throw new TableNotAvailableError()
+        }
+
+        const updatedAt = new Date().toISOString()
+        const occupied = await this.tableRepository.occupyIfFree(id, updatedAt)
+        if (!occupied) {
+            throw new TableNotAvailableError()
+        }
+        return { ...existing, status: 'ocupada', updatedAt }
     }
 
     // Una mesa de otro restaurante se trata como inexistente
