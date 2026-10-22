@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core'
-import { ActivatedRoute, RouterLink } from '@angular/router'
+import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { TableService } from '../../core/services/table.service'
+import { CartStore } from '../../core/store/cart.store'
 import { Table } from '../../core/models/table.model'
 
 @Component({
@@ -63,6 +64,14 @@ import { Table } from '../../core/models/table.model'
               </button>
             }
           </div>
+          <button
+            type="button"
+            class="btn btn-primary continue-btn"
+            [disabled]="selectedId() === null || occupying()"
+            (click)="continue()"
+          >
+            Continuar
+          </button>
         }
       }
     </div>
@@ -105,6 +114,11 @@ import { Table } from '../../core/models/table.model'
     .table-card.selected {
       background: var(--bg-hover);
     }
+    .continue-btn {
+      width: 100%;
+      justify-content: center;
+      margin-top: 24px;
+    }
     .capacity,
     .description {
       font-size: 13px;
@@ -114,7 +128,9 @@ import { Table } from '../../core/models/table.model'
 })
 export class TableSelectionComponent {
   private readonly route = inject(ActivatedRoute)
+  private readonly router = inject(Router)
   private readonly tableService = inject(TableService)
+  private readonly cartStore = inject(CartStore)
 
   private readonly restaurantId = this.route.snapshot.paramMap.get('id')!
 
@@ -124,6 +140,7 @@ export class TableSelectionComponent {
   readonly searched = signal(false)
   readonly searchedPeople = signal<number | null>(null)
   readonly loading = signal(false)
+  readonly occupying = signal(false)
   readonly error = signal<string | null>(null)
 
   onPeopleInput(value: string): void {
@@ -133,6 +150,10 @@ export class TableSelectionComponent {
 
   search(event?: Event): void {
     event?.preventDefault()
+    this.loadTables(null)
+  }
+
+  private loadTables(notice: string | null): void {
     const people = this.people()
     if (people === null) return
 
@@ -145,6 +166,7 @@ export class TableSelectionComponent {
         this.tables.set(tables)
         this.searchedPeople.set(people)
         this.searched.set(true)
+        this.error.set(notice)
         this.loading.set(false)
       },
       error: () => {
@@ -156,5 +178,30 @@ export class TableSelectionComponent {
 
   select(table: Table): void {
     this.selectedId.set(table.id)
+  }
+
+  continue(): void {
+    const tableId = this.selectedId()
+    const people = this.people()
+    if (!tableId || people === null) return
+
+    this.occupying.set(true)
+    this.error.set(null)
+
+    this.tableService.occupy(this.restaurantId, tableId, people).subscribe({
+      next: (table) => {
+        this.cartStore.setTable(this.restaurantId, table.id)
+        this.occupying.set(false)
+        this.router.navigate(['/restaurants', this.restaurantId])
+      },
+      error: (err) => {
+        this.occupying.set(false)
+        if (err.status === 409) {
+          this.loadTables('La mesa ya no está disponible. Elige otra, por favor.')
+        } else {
+          this.error.set('No se ha podido ocupar la mesa. Inténtalo de nuevo.')
+        }
+      }
+    })
   }
 }
