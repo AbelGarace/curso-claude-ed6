@@ -21,9 +21,12 @@ export interface CartItem {
 export class CartStore {
   private readonly _items = signal<CartItem[]>([])
   private readonly _restaurantId = signal<string | null>(null)
+  private readonly _table = signal<{ restaurantId: string; tableId: string } | null>(null)
 
   readonly items = this._items.asReadonly()
   readonly restaurantId = this._restaurantId.asReadonly()
+  /** Mesa ocupada por el cliente y el restaurante al que pertenece. */
+  readonly table = this._table.asReadonly()
 
   readonly total = computed(() =>
     this._items().reduce((sum, item) => sum + item.dish.price * item.quantity, 0)
@@ -32,6 +35,20 @@ export class CartStore {
   readonly itemCount = computed(() =>
     this._items().reduce((count, item) => count + item.quantity, 0)
   )
+
+  /** Devuelve el id de la mesa solo si pertenece al restaurante indicado. */
+  tableIdFor(restaurantId: string): string | null {
+    const table = this._table()
+    return table && table.restaurantId === restaurantId ? table.tableId : null
+  }
+
+  setTable(restaurantId: string, tableId: string): void {
+    if (this._restaurantId() && this._restaurantId() !== restaurantId) {
+      this._items.set([])
+      this._restaurantId.set(null)
+    }
+    this._table.set({ restaurantId, tableId })
+  }
 
   addItem(dish: Dish, quantity: number = 1, notes: string = ''): void {
     if (this._restaurantId() && this._restaurantId() !== dish.restaurantId) {
@@ -74,6 +91,7 @@ export class CartStore {
     this._items.set(items)
   }
 
+  /** Vacía los ítems; la mesa se conserva para poder seguir pidiendo en ella. */
   clear(): void {
     this._items.set([])
     this._restaurantId.set(null)
