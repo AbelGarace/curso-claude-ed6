@@ -20,7 +20,7 @@ export class OrderController {
             if (error instanceof Error) {
                 res.status(400).json({ error: error.message })
             } else {
-                res.status(500).json({ error: 'Internal Server Error' })
+                res.status(500).json({ error: 'Error interno del servidor' })
             }
         }
     }
@@ -29,14 +29,14 @@ export class OrderController {
         try {
             const { restaurantId } = req.query
             if (!restaurantId || typeof restaurantId !== 'string') {
-                res.status(400).json({ error: 'restaurantId is required' })
+                res.status(400).json({ error: 'El ID del restaurante es obligatorio' })
                 return
             }
 
             const orders = await this.orderService.listActive(restaurantId)
             res.status(200).json(orders)
         } catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' })
+            res.status(500).json({ error: 'Error interno del servidor' })
         }
     }
 
@@ -44,13 +44,13 @@ export class OrderController {
         try {
             const user = (req as any).user
             if (!user?.id) {
-                res.status(401).json({ error: 'Unauthorized' })
+                res.status(401).json({ error: 'No autorizado' })
                 return
             }
             const orders = await this.orderService.getByClientId(user.id)
             res.status(200).json(orders)
         } catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' })
+            res.status(500).json({ error: 'Error interno del servidor' })
         }
     }
 
@@ -62,7 +62,7 @@ export class OrderController {
             if (error instanceof Error && error.name === 'OrderNotFoundError') {
                 res.status(404).json({ error: error.message })
             } else {
-                res.status(500).json({ error: 'Internal Server Error' })
+                res.status(500).json({ error: 'Error interno del servidor' })
             }
         }
     }
@@ -79,7 +79,7 @@ export class OrderController {
             if (error instanceof Error && (error.name === 'OrderNotFoundError' || error.name === 'InvalidOrderStatusError')) {
                 res.status(400).json({ error: error.message })
             } else {
-                res.status(500).json({ error: 'Internal Server Error' })
+                res.status(500).json({ error: 'Error interno del servidor' })
             }
         }
     }

@@ -29,5 +29,5 @@ export const errorHandler = (err: any, _req: Request, res: Response, _next: Next
         return
     }
 
-    res.status(500).json({ error: 'InternalServerError', message: 'Something went wrong' })
+    res.status(500).json({ error: 'InternalServerError', message: 'Se ha producido un error inesperado' })
 }
