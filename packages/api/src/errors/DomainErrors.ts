@@ -168,3 +168,45 @@ export class InvalidTableStatusError extends AppError {
     super(message ?? 'Estado de mesa inválido')
   }
 }
+
+export class TableNotFoundError extends AppError {
+  constructor() {
+    super('Mesa no encontrada')
+  }
+}
+
+export class InvalidTableNumberError extends AppError {
+  constructor() {
+    super('El número de mesa debe ser un entero mayor que 0')
+  }
+}
+
+export class InvalidCapacityError extends AppError {
+  constructor() {
+    super('La capacidad debe ser un entero mayor que 0')
+  }
+}
+
+export class InvalidPeopleError extends AppError {
+  constructor() {
+    super('El número de comensales debe ser un entero mayor que 0')
+  }
+}
+
+export class DuplicatedTableNumberError extends AppError {
+  constructor() {
+    super('Ya existe una mesa con ese número en este restaurante')
+  }
+}
+
+export class TableNotAvailableError extends AppError {
+  constructor() {
+    super('La mesa no está disponible para ese número de comensales')
+  }
+}
+
+export class TableOccupiedError extends AppError {
+  constructor() {
+    super('No se puede borrar una mesa ocupada')
+  }
+}
